@@ -6,12 +6,12 @@ import (
 )
 
 type RegisterRequest struct {
-	Email              string                    `json:"email" validate:"required,email"`
-	FullName           string                    `json:"fullName" validate:"required,min=2,max=100"`
-	Gender             entities.Gender           `json:"gender" validate:"required,oneof=male female other prefer_not_to_say"`
-	DateOfBirth        string                    `json:"dateOfBirth" validate:"required"`
+	Email              string                      `json:"email" validate:"required,email"`
+	FullName           string                      `json:"fullName" validate:"required,min=2,max=100"`
+	Gender             entities.Gender             `json:"gender" validate:"required,oneof=male female other prefer_not_to_say"`
+	DateOfBirth        string                      `json:"dateOfBirth" validate:"required"`
 	RegistrationMethod entities.RegistrationMethod `json:"registrationMethod" validate:"required,oneof=email google apple"`
-	Password           string                    `json:"password,omitempty" validate:"required_if=RegistrationMethod email,min=8"`
+	Password           string                      `json:"password,omitempty" validate:"required_if=RegistrationMethod email,min=8"`
 }
 
 type LoginRequest struct {

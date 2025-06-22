@@ -16,7 +16,7 @@ func main() {
 	tokenRepo := repositories.NewMemoryTokenRepository()
 	hasher := security.NewBcryptHasher()
 	validator := middleware.NewValidator()
-	rateLimiter := middleware.NewRateLimiter(100, time.Minute)
+	rateLimiter := middleware.NewRateLimiter(100, time.Minute, tokenRepo)
 
 	authService := services.NewAuthService(userRepo, tokenRepo, hasher)
 	authHandler := handlers.NewAuthHandler(authService, validator)
@@ -26,16 +26,20 @@ func main() {
 		middleware.RequestID(
 			middleware.CORS(
 				rateLimiter.Middleware(authHandler.Register))))
+
 	mux.HandleFunc("/auth/login",
 		middleware.RequestID(
 			middleware.CORS(
 				rateLimiter.Middleware(authHandler.Login))))
+
 	mux.HandleFunc("/auth/me",
 		middleware.RequestID(
-			middleware.CORS(authHandler.Profile)))
+			middleware.CORS(rateLimiter.UserAccessTokenMiddleware(authService)(authHandler.Profile))))
+
 	mux.HandleFunc("/auth/logout",
 		middleware.RequestID(
-			middleware.CORS(authHandler.Logout)))
+			middleware.CORS(rateLimiter.UserRefreshTokenMiddleware(authService)(authHandler.Logout))))
+			
 	mux.HandleFunc("/auth/refresh",
 		middleware.RequestID(
 			middleware.CORS(authHandler.RefreshToken)))
