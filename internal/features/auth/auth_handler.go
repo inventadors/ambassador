@@ -1,11 +1,8 @@
-package handlers
+package auth
 
 import (
-	"ambassador/application/dto"
-	"ambassador/domain/services"
-	"ambassador/interfaces/http/middleware"
-	"ambassador/interfaces/http/response"
-	"fmt"
+	"ambassador/internal/shared/middleware"
+	"ambassador/internal/shared/response"
 	"net/http"
 	"strings"
 
@@ -13,19 +10,19 @@ import (
 )
 
 type AuthHandler struct {
-	authService services.AuthService
-	validator   middleware.Validator
+	service   *AuthService
+	validator middleware.Validator
 }
 
-func NewAuthHandler(authService services.AuthService, validator middleware.Validator) *AuthHandler {
+func NewAuthHandler(service *AuthService, validator middleware.Validator) *AuthHandler {
 	return &AuthHandler{
-		authService: authService,
-		validator:   validator,
+		service:   service,
+		validator: validator,
 	}
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
-	var req dto.RegisterRequest
+	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
 		return
@@ -36,7 +33,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, tokenPair, err := h.authService.Register(&req)
+	user, tokenPair, err := h.service.Register(&req)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			response.Error(c, http.StatusConflict, "USER_ALREADY_EXISTS", err.Error())
@@ -46,13 +43,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	authResponse := dto.ToAuthResponse(user, tokenPair)
+	authResponse := ToAuthResponse(user, tokenPair)
 	response.Success(c, http.StatusCreated, "User registered successfully", authResponse)
 }
 
-// Add similar Gin methods for other endpoints (GinLogin, GinProfile, GinLogout, GinRefreshToken)
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req dto.LoginRequest
+	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
 		return
@@ -63,29 +59,23 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	tokenPair, err := h.authService.Login(&req)
+	tokenPair, err := h.service.Login(&req)
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid credentials")
 		return
 	}
 
-	user, err := h.authService.GetProfile(tokenPair.AccessToken.Value)
+	user, err := h.service.GetProfile(tokenPair.AccessToken.Value)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to get user profile")
 		return
 	}
 
-	authResponse := dto.ToAuthResponse(user, tokenPair)
+	authResponse := ToAuthResponse(user, tokenPair)
 	response.Success(c, http.StatusOK, "Login successful", authResponse)
 }
 
 func (h *AuthHandler) Profile(c *gin.Context) {
-	// userID, exists := c.Get("userID")
-	// if !exists {
-	// 	response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", "User ID not found in context")
-	// 	return
-	// }
-
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		response.Error(c, http.StatusUnauthorized, "MISSING_TOKEN", "Authorization token required")
@@ -98,18 +88,18 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.GetProfile(parts[1])
+	user, err := h.service.GetProfile(parts[1])
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, "INVALID_TOKEN", err.Error())
 		return
 	}
 
-	userResponse := dto.ToUserResponse(user)
+	userResponse := ToUserResponse(user)
 	response.Success(c, http.StatusOK, "Profile retrieved successfully", userResponse)
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	var req dto.RefreshTokenRequest
+	var req RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
 		return
@@ -120,7 +110,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.Logout(req.RefreshToken); err != nil {
+	if err := h.service.Logout(req.RefreshToken); err != nil {
 		response.Error(c, http.StatusBadRequest, "LOGOUT_FAILED", err.Error())
 		return
 	}
@@ -129,7 +119,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
-	var req dto.RefreshTokenRequest
+	var req RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
 		return
@@ -140,13 +130,12 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	tokenPair, err := h.authService.RefreshToken(req.RefreshToken)
-	fmt.Println(req.RefreshToken)
+	tokenPair, err := h.service.RefreshToken(req.RefreshToken)
 	if err != nil {
 		response.Error(c, http.StatusUnauthorized, "INVALID_REFRESH_TOKEN", err.Error())
 		return
 	}
 
-	refreshResponse := dto.ToRefreshResponse(tokenPair)
+	refreshResponse := ToRefreshResponse(tokenPair)
 	response.Success(c, http.StatusOK, "Token refreshed successfully", refreshResponse)
 }

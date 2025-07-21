@@ -4,7 +4,7 @@ import (
 	"ambassador/application/dto"
 	"ambassador/domain/repositories"
 	"ambassador/domain/services"
-	"ambassador/interfaces/http/response"
+	"ambassador/internal/shared/response"
 	"net/http"
 	"strings"
 	"sync"
@@ -58,7 +58,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	}
 }
 
-func (rl *RateLimiter) UserAccessTokenMiddleware(authService services.AuthService) gin.HandlerFunc {
+func (rl *RateLimiter) UserAccessTokenMiddleware(authService auth.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		var userID string
